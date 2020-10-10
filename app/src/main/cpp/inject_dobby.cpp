@@ -15,15 +15,13 @@
 //拆分左右两个字符串的最大长度
 #define SplitSize 100
 #define HeaderSize 12
-#define MiddleSize 500
-#define EndSize 8
+#define MiddleSize 200
+#define EndSize 4
 #define LOGD(fmt, args...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG,fmt, ##args)
 #define LOGE(fmt, args...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,fmt, ##args)
 
 typedef int (*m_dlopen)(const char *__filename, int __flag);
 typedef int (*m_dlsym)(void *__handle, const char *__symbol);
-
-
 
 unsigned int func_dlopen = NULL;
 unsigned int func_dlsym = NULL;
@@ -77,7 +75,7 @@ char *buffer;
 //读取的文件长度
 long file_size;
 //libil2cpp.so 的 base地址
-unsigned long libil2cpp_base;
+unsigned long libil2cpp_base = 0;
 //libil2cpp.so 的 handle
 void *libil2cpp_handle;
 
@@ -188,7 +186,7 @@ int readFile(JNIEnv *pEnv) {
     char *path = static_cast<char *>(calloc(200, sizeof(char)));
     strcat(path,const_cast<char *>("/data/data/"));
     strcat(path,getPackageName(pEnv));
-    strcat(path,const_cast<char *>("/cache/map"));
+    strcat(path,const_cast<char *>("/cache/sh_mime_type"));
 
     pFile = fopen(path, "rb");
     if (pFile == NULL) {
@@ -288,23 +286,31 @@ void *new_func_dlsym(void *handle, const char *symbol) {
 }
 
 void *new_func_set(void *arg, void *arg1, void *arg2, void *arg3) {
-    LOGD("Enter new_func_set %d",current_get_index);
     current_set_index++;
-    //set的时候第二个参数可能为0，就像get的时候返回值可能为0一样
-    if (arg1 == 0) return old_func_set(arg, arg1, arg2, arg3);
-    try {
+    if (current_set_index > 700){
+        LOGD("Enter new_func_set %d",current_set_index);
+        //set的时候第二个参数可能为0，就像get的时候返回值可能为0一样
+        //有可能没有值，后面就会以八个零结束会出错（返回值偏移12位如果为0则直接返回）
+        if (arg1 == 0 || *((char *) arg1 + sizeof(char) * 12) == 0){
+            LOGE("1");
+            return old_func_set(arg, arg1, arg2, arg3);
+        }
         memset(header_set, 0, HeaderSize);
         memcpy(header_set, arg1, HeaderSize);
-        memset(end, 0, EndSize);
         memset(middle_set, 0, SplitSize);
+        LOGE("2");
+        //以八个0作为结束，拷贝以返回值偏移12个字节的作为开始的内存数据，其实就是中间文字部分
         memccpy(middle_set, (char *) arg1 + sizeof(char) * HeaderSize, reinterpret_cast<int>(end), SplitSize);
         void* p_le =memchr(middle_set,reinterpret_cast<int>(end),SplitSize);
+        //原返回值中间文字部分的长度
         int src_length = (char*)p_le - (char*)middle_set;
-
+        LOGD("Length %d  %d",src_length);
         int current_lines = 0;
+        //初始化解析文本以“|”作为分割左边 右边部分缓存指针
         char *left = static_cast<char *>(calloc(SplitSize, sizeof(char)));
         char *right = static_cast<char *>(calloc(SplitSize, sizeof(char)));
-
+        LOGE("3");
+        //读取文件后删除了源文件的，从这里的buffer拷贝一个备份来操作
         char *temp_buffer = (char *) malloc(sizeof(char) * file_size + sizeof(int));
         memcpy(temp_buffer, buffer, sizeof(char) * file_size + sizeof(int));
         char *p = strtok(temp_buffer, "\r\n");
@@ -315,23 +321,24 @@ void *new_func_set(void *arg, void *arg1, void *arg2, void *arg3) {
             static_cast<char *>(memcpy(left, p, strlen(p) - strlen(s)));
             right = strcpy(right, s + sizeof(char));
             if (current_lines != 0) {
-                char *convert_str = static_cast<char *>(malloc(strlen(left) * 2));
-                memset(convert_str, 0, strlen(left) * 2);
-//                int length = UTF8_to_Unicode(convert_str, left);
-                //length == (src_length - EndSize) &&
-//                LOGD("src_length - EndSize  %d" , src_length - EndSize);
-                if (memcmp(middle_set, convert_str, src_length - EndSize) == 0) {
+                LOGE("4");
+                char *convert_str = static_cast<char *>(calloc(SplitSize * 2, sizeof(char)));
+                int length = UTF8_to_Unicode(convert_str, left);
+                //内存字节的比较
+                if (memcmp(middle_set, convert_str, length) == 0) {
+//                if (memcmp((char *) arg1 + sizeof(char) * HeaderSize, convert_str,static_cast<size_t>(length)) == 0) {
                     LOGE("---> called set_text replace %s to %s   times:%d",left,right,current_set_index);
                     LOGD("Original str hex at %p === >",&middle_set);
-                    hexDump(reinterpret_cast<const char *>(middle_set), src_length);
-                    void *p = malloc(strlen(right) * 2);
-                    int le = UTF8_to_Unicode(static_cast<char *>(p), right);
+                    hexDump(reinterpret_cast<const char *>(middle_set), length*2);
+                    void *p1 = calloc(SplitSize * 2, sizeof(char));
+                    int le = UTF8_to_Unicode(static_cast<char *>(p1), right);
                     LOGD("Replacement str hex at %p === >",&le);
-                    hexDump(reinterpret_cast<const char *>(p), le);
+                    hexDump(reinterpret_cast<const char *>(p1), le);
+                    //申请空间来重新组合返回值
                     void *temp = malloc(static_cast<size_t>(HeaderSize + le + EndSize));
                     memset(temp, 0, static_cast<size_t>(HeaderSize + le + EndSize));
                     memcpy(temp, header_set, HeaderSize);
-                    memcpy((char *) temp + HeaderSize, p, static_cast<size_t>(le));
+                    memcpy((char *) temp + HeaderSize, p1, static_cast<size_t>(le));
                     memcpy((char *) temp + HeaderSize + le, end, EndSize);
                     LOGD("Return str hex at %p === >",&temp);
                     hexDump(static_cast<const char *>(temp), static_cast<size_t>(HeaderSize + le + EndSize));
@@ -339,6 +346,7 @@ void *new_func_set(void *arg, void *arg1, void *arg2, void *arg3) {
                     free(left);
                     free(right);
                     free(temp_buffer);
+                    free(p1);
                     return old_func_set(arg, temp, arg2, arg3);
                 }
             }
@@ -349,77 +357,77 @@ void *new_func_set(void *arg, void *arg1, void *arg2, void *arg3) {
         free(right);
         free(temp_buffer);
         return old_func_set(arg, arg1, arg2, arg3);
-    }catch (...){
-        LOGE("ERRR MENORY");
+    }else{
         return old_func_set(arg, arg1, arg2, arg3);
     }
+//    try {
+//
+//    }catch (std::exception){
+//        LOGE("Catch exception");
+//        return old_func_set(arg, arg1, arg2, arg3);
+//    }
 }
 
 void *new_func_get(void *arg, void *arg1, void *arg2, void *arg3) {
-    LOGD("Enter new_func_get %d",current_get_index);
     current_get_index++;
-    try
-    {
-        void *ret = old_func_get(arg, arg1, arg2, arg3);
-        if (ret == 0) return ret;
-        memset(header_get, 0, HeaderSize);
-        memcpy(header_get, ret, HeaderSize);
-        memset(middle_get, 0, SplitSize);
-        memccpy(middle_get, (char *) ret + sizeof(char) * HeaderSize, reinterpret_cast<int>(end), SplitSize);
+    LOGD("Enter new_func_get %d",current_get_index);
+    void *ret = old_func_get(arg, arg1, arg2, arg3);
+    if (ret == 0 || arg1 == 0) return ret;
+    if(*((char *) ret + sizeof(char) * HeaderSize) == 0) return old_func_set(arg, arg1, arg2, arg3);
+    memset(header_get, 0, HeaderSize);
+    memcpy(header_get, ret, HeaderSize);
+    memset(middle_get, 0, SplitSize);
+    memccpy(middle_get, (char *) ret + sizeof(char) * HeaderSize, reinterpret_cast<int>(end), SplitSize);
 
-        int current_lines = 0;
-        char *left = static_cast<char *>(calloc(SplitSize, sizeof(char)));
-        char *right = static_cast<char *>(calloc(SplitSize, sizeof(char)));
+    int current_lines = 0;
+    char *left = static_cast<char *>(calloc(SplitSize, sizeof(char)));
+    char *right = static_cast<char *>(calloc(SplitSize, sizeof(char)));
 
-        char *temp_buffer = (char *) malloc(sizeof(char) * file_size + sizeof(int));
-        memcpy(temp_buffer, buffer, sizeof(char) * file_size + sizeof(int));
-        void* p_le =memchr(middle_get,reinterpret_cast<int>(end),SplitSize);
-        int src_length = (char*)p_le - (char*)middle_get;
-        char *p = strtok(temp_buffer, "\r\n");
-        while (p != NULL) {
-            memset(left, 0, SplitSize);
-            memset(right, 0, SplitSize);
-            char *s = strstr(p, "|");
-            static_cast<char *>(memcpy(left, p, strlen(p) - strlen(s)));
-            right = strcpy(right, s + sizeof(char));
-            if (current_lines != 0) {
-                char *convert_str = static_cast<char *>(malloc(strlen(left) * 2));
-                memset(convert_str, 0, strlen(left) * 2);
-//                int length = UTF8_to_Unicode(convert_str, left);
-                if (memcmp(middle_get, convert_str, src_length - EndSize) == 0) {
-                    LOGE("---> called get_text replace %s to %s   times:%d",left,right,current_set_index);
-                    LOGD("Original str hex at %p === >",&middle_set);
-                    hexDump(reinterpret_cast<const char *>(middle_set), src_length);
-                    void *p = malloc(strlen(right) * 2);
-                    int le = UTF8_to_Unicode(static_cast<char *>(p), right);
-                    LOGD("Replacement str hex at %p === >",&le);
-                    hexDump(reinterpret_cast<const char *>(p), le);
-                    void *temp = malloc(static_cast<size_t>(HeaderSize + le + EndSize));
-                    memset(temp, 0, static_cast<size_t>(HeaderSize + le + EndSize));
-                    memcpy(temp, header_get, HeaderSize);
-                    memcpy((char *) temp + HeaderSize, p, static_cast<size_t>(le));
-                    memcpy((char *) temp + HeaderSize + le, end, EndSize);
-                    LOGD("Return str hex at %p === >",&temp);
-                    hexDump(static_cast<const char *>(temp), static_cast<size_t>(HeaderSize + le + EndSize));
-                    free(left);
-                    free(right);
-                    free(convert_str);
-                    free(temp_buffer);
-                    return temp;
-                }
+    char *temp_buffer = (char *) malloc(sizeof(char) * file_size + sizeof(int));
+    memcpy(temp_buffer, buffer, sizeof(char) * file_size + sizeof(int));
+//    void* p_le =memchr(middle_get,reinterpret_cast<int>(end),SplitSize);
+//    int src_length = (char*)p_le - (char*)middle_get;
+//    LOGD("SRC_LENGTH = %d",src_length);
+    char *p = strtok(temp_buffer, "\r\n");
+    while (p != NULL) {
+        memset(left, 0, SplitSize);
+        memset(right, 0, SplitSize);
+        char *s = strstr(p, "|");
+        static_cast<char *>(memcpy(left, p, strlen(p) - strlen(s)));
+        right = strcpy(right, s + sizeof(char));
+        if (current_lines != 0) {
+            char *convert_str = static_cast<char *>(calloc(SplitSize * 2, sizeof(char)));
+            memset(convert_str, 0, strlen(left) * 2);
+            int length = UTF8_to_Unicode(convert_str, left);
+            if (memcmp(middle_get, convert_str, length) == 0) {
+                LOGE("---> called get_text replace %s to %s   times:%d",left,right,current_set_index);
+                LOGD("Original str hex at %p === >",&middle_set);
+                hexDump(reinterpret_cast<const char *>(middle_set), length);
+                void *p1 = calloc(SplitSize * 2, sizeof(char));
+                int le = UTF8_to_Unicode(static_cast<char *>(p1), right);
+                LOGD("Replacement str hex at %p === >",&le);
+                hexDump(reinterpret_cast<const char *>(p1), le);
+                void *temp = malloc(static_cast<size_t>(HeaderSize + le + EndSize));
+                memset(temp, 0, static_cast<size_t>(HeaderSize + le + EndSize));
+                memcpy(temp, header_get, HeaderSize);
+                memcpy((char *) temp + HeaderSize, p1, static_cast<size_t>(le));
+                memcpy((char *) temp + HeaderSize + le, end, EndSize);
+                LOGD("Return str hex at %p === >",&temp);
+                hexDump(static_cast<const char *>(temp), static_cast<size_t>(HeaderSize + le + EndSize));
+                free(left);
+                free(right);
+                free(convert_str);
+                free(temp_buffer);
+                free(p1);
+                return old_func_get(arg, arg1, arg2, temp);
             }
-            p = strtok(NULL, "\r\n");
-            current_lines++;
         }
-        free(left);
-        free(right);
-        free(temp_buffer);
+        p = strtok(NULL, "\r\n");
+        current_lines++;
     }
-    catch(...)
-    {
-        LOGE("ERRR MENORY");
-        return old_func_get(arg, arg1, arg2, arg3);
-    }
+    free(left);
+    free(right);
+    free(temp_buffer);
     return old_func_get(arg, arg1, arg2, arg3);
 }
 
