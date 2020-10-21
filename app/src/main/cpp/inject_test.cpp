@@ -2,6 +2,7 @@
 #include <jni.h>
 
 #include "inlineHook/include/inlineHook.h"
+#include "Tools/tools.h"
 #include <android/log.h>
 
 #include <unistd.h>
@@ -29,123 +30,40 @@ unsigned int func_y_1 = NULL;
 
 void hook();
 unsigned long getCurrentTime();
+void show_toast();
 void show_sa10();
+
+//记录启动时间
+static long StartTime = getCurrentTime();
+//防止连续点击的延时
+static long Display_advertising_interval = 1*3*1000;
+//开始启动hook的延时
+static long Start_time_delay = 1*1*1000;
+//每几次触发一次
+static int times_delay_s = 1;
+
+char *lib_name = const_cast<char *>("libil2cpp.so");
 
 JNIEnv *env;
 JavaVM *g_jvm;
-
 unsigned long base = 0;
 unsigned long last_milles = 0;
-char *lib_name = const_cast<char *>("libil2cpp.so");
 
-void hexDump(const char *buf, int len) {
-    if (len < 1 || buf == NULL) return;
+unsigned int times_delay = 0;
 
-    const char *hexChars = "0123456789ABCDEF";
-    int i = 0;
-    char c = 0x00;
-    char str_print_able[17];
-    char str_hex_buffer[16 * 3 + 1];
-
-    for (i = 0; i < (len / 16) * 16; i += 16) {
-        int j = 0;
-        for (j = 0; j < 16; j++) {
-            c = buf[i + j];
-            // hex
-            int z = j * 3;
-            str_hex_buffer[z++] = hexChars[(c >> 4) & 0x0F];
-            str_hex_buffer[z++] = hexChars[c & 0x0F];
-            str_hex_buffer[z++] = (j < 10 && !((j + 1) % 8)) ? '_' : ' ';
-
-            // string with space repalced
-            if (c < 32 || c == '\0' || c == '\t' || c == '\r' || c == '\n' || c == '\b')
-                str_print_able[j] = '.';
-            else
-                str_print_able[j] = c;
-        }
-        str_hex_buffer[16 * 3] = 0x00;
-        str_print_able[j] = 0x00;
-
-        LOGE("%04x  %s %s\n", i, str_hex_buffer, str_print_able);
-    }
-
-    // 处理剩下的不够16字节长度的部分
-    int leftSize = len % 16;
-    if (leftSize < 1) return;
-    int j = 0;
-    int pos = i;
-    for (; i < len; i++) {
-        c = buf[i];
-
-        // hex
-        int z = j * 3;
-        str_hex_buffer[z++] = hexChars[(c >> 4) & 0x0F];
-        str_hex_buffer[z++] = hexChars[c & 0x0F];
-        str_hex_buffer[z++] = ' ';
-
-        // string with space repalced
-        if (c < 32 || c == '\0' || c == '\t' || c == '\r' || c == '\n' || c == '\b')
-            str_print_able[j] = '.';
-        else
-            str_print_able[j] = c;
-        j++;
-    }
-    str_hex_buffer[leftSize * 3] = 0x00;
-    str_print_able[j] = 0x00;
-
-    for (j = leftSize; j < 16; j++) {
-        int z = j * 3;
-        str_hex_buffer[z++] = ' ';
-        str_hex_buffer[z++] = ' ';
-        str_hex_buffer[z++] = ' ';
-    }
-    str_hex_buffer[16 * 3] = 0x00;
-    LOGE("%04x  %s %s\n", pos, str_hex_buffer, str_print_able);
-}
-
-static unsigned long find_module_by_name(char *soName) {
-    char filename[32];
-    char cmdline[256];
-    sprintf(filename, "/proc/%d/maps", getpid());
-    LOGD("filename = %s", filename);
-    FILE *fp = fopen(filename, "r");
-    unsigned long revalue = 0;
-    if (fp) {
-        while (fgets(cmdline, 256, fp)) //逐行读取
-        {
-            if (strstr(cmdline, soName) && strstr(cmdline, "r-xp"))//筛选
-            {
-                LOGD("cmdline = %s", cmdline);
-                char *str = strstr(cmdline, "-");
-                if (str) {
-                    *str = '\0';
-                    char num[32];
-                    sprintf(num, "0x%s", cmdline);
-                    revalue = strtoul(num, NULL, 0);
-                    LOGD("revalue = %lu", revalue);
-                    return revalue;
-                }
-            }
-            memset(cmdline, 0, 256); //清零
-        }
-        fclose(fp);
-    }
-    return 0L;
-}
-jobject getApplication(JNIEnv *env);
-
+//特值处理
+void Func_SpecificTreatment(void* arg,void* arg1,void* arg2,void* arg3);
 //原函数指针
 void* (*old_func_dlopen)(const char* filename, int flags, const void* caller_addr) = NULL;
-void* (*old_fun_dlsym)(void* /*handle*/, const char* /*symbol*/) = NULL;
 
+void* (*old_fun_dlsym)(void* /*handle*/, const char* /*symbol*/) = NULL;
 void* (*old_func_y_6)(void*,void*,void*,void*) = NULL;
 void* (*old_func_y_5)(void*,void*,void*,void*) = NULL;
 void* (*old_func_y_4)(void*,void*,void*,void*) = NULL;
 void* (*old_func_y_3)(void*,void*,void*,void*) = NULL;
 void* (*old_func_y_2)(void*,void*,void*,void*) = NULL;
-void* (*old_func_y_1)(void*,void*,void*,void*) = NULL;
 
-void show_toast();
+void* (*old_func_y_1)(void*,void*,void*,void*) = NULL;
 
 void* new_func_dlopen(const char *filename, int flags, const void *caller_addr) {
     void* p = old_func_dlopen(filename,flags,caller_addr);
@@ -167,16 +85,8 @@ void* new_func_dlsym(void *handle, const char *symbol){
 
 void* new_func_y_6(void* arg,void* arg1,void* arg2,void* arg3){
     LOGD("Enter new_func_y_6");
-    hexDump(static_cast<const char *>(arg1), 16);
-    LOGD("%d ",*(&arg1 + 16));
-    LOGD("%d ",*(&arg1 + 17));
-    void* p = calloc(1, sizeof(char));
-    memcpy(p, (char *) arg1 + sizeof(char) * 16, 2);
-    hexDump(static_cast<const char *>(p), 16);
-    LOGD("%d ",p);
-
-//    show_sa10();
     void* ret = old_func_y_6(arg,arg1,arg2,arg3);
+    Func_SpecificTreatment(arg,arg1,arg2,arg3);
     return ret;
 }
 
@@ -196,9 +106,8 @@ void* new_func_y_4(void* arg,void* arg1,void* arg2,void* arg3){
 
 void* new_func_y_3(void* arg,void* arg1,void* arg2,void* arg3){
     LOGD("Enter new_func_y_3");
-    show_sa10();
+//    show_sa10();
     void* ret = old_func_y_3(arg,arg1,arg2,arg3);
-
     return ret;
 }
 
@@ -216,23 +125,47 @@ void* new_func_y_1(void* arg,void* arg1,void* arg2,void* arg3){
     return ret;
 }
 
+void Func_SpecificTreatment(void* arg,void* arg1,void* arg2,void* arg3){
+//    hexDump(static_cast<const char *>(arg1), 16);
+//    LOGD("%d ",*(&arg1 + 16));
+//    LOGD("%d ",*(&arg1 + 17));
+//    void* p = calloc(1, sizeof(char));
+//    memcpy(p, (char *) arg1 + sizeof(char) * 16, 2);
+//    hexDump(static_cast<const char *>(p), 16);
+//    LOGD("%d ",p);
+//    old_func_y_3(arg,arg1,arg2,arg3);
+    show_sa10();
+}
 
 void show_sa10() {
-    if (getCurrentTime() - last_milles > 8*1000) {
-        last_milles = getCurrentTime();
-        if (g_jvm->AttachCurrentThread(&env, NULL) == JNI_OK) {
-            LOGE("\n[*]AttachCurrentThread OK");
+    //启动延时
+    if (getCurrentTime()-StartTime < Start_time_delay){
+        LOGE("\n[*]start-up delay residue ：%d",Start_time_delay + StartTime - getCurrentTime());
+    }else{
+        //连续点击判断延时
+        if (getCurrentTime() - last_milles > Display_advertising_interval) {
+            last_milles = getCurrentTime();
+            //每times_delay_s次触发一次
+            if (++times_delay % times_delay_s == 0){
+                if (g_jvm->AttachCurrentThread(&env, NULL) == JNI_OK) {
+                    LOGE("\n[*]AttachCurrentThread OK");
+                }
+                LOGE("called com.was.m.RewardManager.sa10");
+                jclass RewardManager = env->FindClass("com/was/m/RewardManager");
+                jmethodID sa10 = env->GetStaticMethodID(RewardManager, "sa10", "()V");
+                env->CallStaticVoidMethod(RewardManager, sa10, NULL);
+            }else{
+                LOGD("current times %d ", times_delay);
+            }
+        } else {
+            LOGD("getCurrentTime() - last_milles = %d ", getCurrentTime() - last_milles);
         }
-        jclass RewardManager = env->FindClass("com/was/m/RewardManager");
-        jmethodID sa10 = env->GetStaticMethodID(RewardManager, "sa10", "()V");
-        env->CallStaticVoidMethod(RewardManager, sa10, NULL);
-    } else {
-        LOGD("getCurrentTime() - last_milles = %d < 5000    ", getCurrentTime() - last_milles);
     }
+
 }
 
 //void show_toast() {
-//    if (getCurrentTime() - last_milles > 1*1000) {
+//    if (getCurrentTime() - last_milles > Display_advertising_interval) {
 //        last_milles = getCurrentTime();
 //        if (g_jvm->AttachCurrentThread(&env, NULL) == JNI_OK) {
 //            LOGE("\n[*]AttachCurrentThread OK");
@@ -242,7 +175,7 @@ void show_sa10() {
 //        jmethodID jm_makeText=env->GetStaticMethodID(player,"showToast","(Landroid/app/Application;)V");
 //        env->CallStaticObjectMethod(player,jm_makeText,context);
 //    } else {
-//        LOGD("getCurrentTime() - last_milles = %d < 5000    ", getCurrentTime() - last_milles);
+//        LOGD("getCurrentTime() - last_milles = %d < %d    ", getCurrentTime() - last_milles,Display_advertising_interval);
 //    }
 //}
 
@@ -259,14 +192,11 @@ JNI_OnLoad(JavaVM *vm, void *reserved) {
     {
         LOGE("\n[*]Called AttachCurrentThread OK");
     }
-
     g_jvm = vm;
-
     func_dlopen = reinterpret_cast<unsigned int>((m_dlopen) dlopen);
     func_dlsym = reinterpret_cast<unsigned int>((m_dlsym) dlsym);
 
     LOGD("func_dlopen = 0x%x   -----  func_dlsym = 0x%x ",func_dlopen,func_dlsym);
-
     LOGE("------------------- InlineHook -------------------");
 
     //注册Hook信息
@@ -293,8 +223,8 @@ JNI_OnLoad(JavaVM *vm, void *reserved) {
 }
 
 void hook() {
-    func_y_6 = base + 0x5102e0;
-    func_y_5 = base + 0x0;
+    func_y_6 = base + 0x280720;
+    func_y_5 = base + 0x2786bc;
     func_y_4 = base + 0x0;
     func_y_3 = base + 0x0;
     func_y_2 = base + 0x0;
@@ -337,29 +267,4 @@ void hook() {
             "Fail Hook func_y_1 at 0x%x", func_y_1);
 
     inlineHookAll();
-}
-
-unsigned long getCurrentTime(){
-    struct timeval tv;
-    gettimeofday(&tv,NULL);
-    return static_cast<unsigned long>(tv.tv_sec * 1000 + tv.tv_usec / 1000);
-}
-
-jobject getApplication(JNIEnv *env) {
-    jobject application = NULL;
-    jclass activity_thread_clz = env->FindClass("android/app/ActivityThread");
-    if (activity_thread_clz != NULL) {
-        jmethodID get_Application = env->GetStaticMethodID(activity_thread_clz,
-                                                           "currentActivityThread",
-                                                           "()Landroid/app/ActivityThread;");
-        if (get_Application != NULL) {
-            jobject currentActivityThread = env->CallStaticObjectMethod(activity_thread_clz,
-                                                                        get_Application);
-            jmethodID getal = env->GetMethodID(activity_thread_clz, "getApplication",
-                                               "()Landroid/app/Application;");
-            application = env->CallObjectMethod(currentActivityThread, getal);
-        }
-        return application;
-    }
-    return application;
 }

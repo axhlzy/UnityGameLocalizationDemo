@@ -21,15 +21,16 @@ include_directories(
 )
 
 add_library(
-        inject
+        inject_dobby
         SHARED
 #        ${DobbyHome}/builtin-plugin/AndroidRestriction/android_restriction_demo.cc
 #        ${DobbyHome}/builtin-plugin/ApplicationEventMonitor/posix_file_descriptor_operation_monitor.cc
 #        ${DobbyHome}/builtin-plugin/ApplicationEventMonitor/dynamic_loader_monitor.cc
+        Tools/tools.cpp
         inject_dobby.cpp)
 
 target_link_libraries(
-        inject
+        inject_dobby
         dobby
         ${log-lib})
 
@@ -37,13 +38,14 @@ target_link_libraries(
 #-------------------------   InlineHook   ----------------------------
 #---------------------------------------------------------------------
 
-add_library(inject1
+add_library(inject_inlinehook
         SHARED
         inject_inlinehook.cpp
+        Tools/tools.cpp
         inlineHook/inlineHook.c
         inlineHook/relocate.c)
 
-target_link_libraries(inject1
+target_link_libraries(inject_inlinehook
         android
         log)
 
@@ -51,16 +53,30 @@ target_link_libraries(inject1
 #-------------------------   Inject_call_sa10   ----------------------
 #---------------------------------------------------------------------
 
-add_library(inject2
+add_library(inject_test
         SHARED
         inject_test.cpp
+        Tools/tools.cpp
         inlineHook/inlineHook.c
         inlineHook/relocate.c)
 
-target_link_libraries(inject2
+target_link_libraries(inject_test
         android
         log)
 
+
+#---------------------------------------------------------------------
+#-------------------------   native-lib   ----------------------
+#---------------------------------------------------------------------
+
+add_library(native-lib
+        SHARED
+        Tools/tools.cpp
+        native-lib.cpp)
+
+target_link_libraries(native-lib
+        android
+        log)
 #---------------------------------------------------------------------
 
 find_library(
