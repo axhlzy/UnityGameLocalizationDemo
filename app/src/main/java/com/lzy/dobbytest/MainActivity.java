@@ -11,6 +11,8 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.w3c.dom.Text;
+
 public class MainActivity extends AppCompatActivity {
 
     long lastTime = System.currentTimeMillis();
@@ -19,33 +21,24 @@ public class MainActivity extends AppCompatActivity {
         System.loadLibrary("native-lib");
     }
 
+    private TextView tv;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Example of a call to a native method
-        TextView tv = findViewById(R.id.sample_text);
-//        tv.setText(stringFromJNI());
-
+        tv = findViewById(R.id.sample_text);
+        tv.setText(DeviceUtil.getDeviceId(this));
 
         tv.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                ass();
+                tv.setText(stringFromJNI()+"\ncurrent:"+System.currentTimeMillis());
             }
         });
-
     }
 
-    public void ass(){
-        stringFromJNI();
-    }
-
-    /**
-     * A native method that is implemented by the 'native-lib' native library,
-     * which is packaged with this application.
-     */
     public native String stringFromJNI();
 
 }

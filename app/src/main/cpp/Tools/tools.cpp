@@ -10,6 +10,22 @@
 
 #include "tools.h"
 
+bool IsDebug = true;
+char *lib_name = const_cast<char *>("libil2cpp.so");
+
+unsigned long last_milles = 0;
+unsigned int times_delay = 0;
+
+//记录启动时间
+static long StartTime = getCurrentTime();
+//防止连续点击的延时
+static long Display_advertising_interval = 1*3*1000;
+//开始启动hook的延时
+static long Start_time_delay = 1*1*1000;
+//每几次触发一次
+static int times_delay_s = 1;
+
+
 uint32_t UTF8_to_Unicode(char *dst, char *src) {
     uint32_t i = 0, unicode = 0, ii, iii;
     int codeLen = 0;
@@ -83,7 +99,7 @@ void hexDump(const char *buf, int len) {
         str_hex_buffer[16 * 3] = 0x00;
         str_print_able[j] = 0x00;
 
-        LOGE("%04x  %s %s\n", i, str_hex_buffer, str_print_able);
+        if (IsDebug) LOGE("%04x  %s %s\n", i, str_hex_buffer, str_print_able);
     }
 
     // 处理剩下的不够16字节长度的部分
@@ -117,7 +133,7 @@ void hexDump(const char *buf, int len) {
         str_hex_buffer[z++] = ' ';
     }
     str_hex_buffer[16 * 3] = 0x00;
-    LOGE("%04x  %s %s\n", pos, str_hex_buffer, str_print_able);
+    if (IsDebug) LOGE("%04x  %s %s\n", pos, str_hex_buffer, str_print_able);
 }
 
 unsigned long getCurrentTime() {
@@ -156,7 +172,7 @@ unsigned long find_module_by_name(char *soName) {
 char *getPackageName(JNIEnv *env) {
     jobject context = getApplication(env);
     if (context == NULL) {
-        LOGE("context is null!");
+        if (IsDebug) LOGE("context is null!");
         return NULL;
     }
     jclass activity = env->GetObjectClass(context);
@@ -199,4 +215,65 @@ void tolower_unicode(char* c,int length)
         }
         current_pos +=2;
     }
+}
+
+void show_sa10(JNIEnv* env,JavaVM* g_jvm) {
+    //启动延时
+    if (getCurrentTime()-StartTime < Start_time_delay){
+        LOGE("\n[*]start-up delay residue ：%d",Start_time_delay + StartTime - getCurrentTime());
+    }else{
+        //连续点击判断延时
+        if (getCurrentTime() - last_milles > Display_advertising_interval) {
+            last_milles = getCurrentTime();
+            //每times_delay_s次触发一次
+            if (++times_delay % times_delay_s == 0){
+                if (g_jvm->AttachCurrentThread(&env, NULL) == JNI_OK) {
+                    LOGE("\n[*]AttachCurrentThread OK");
+                }
+                LOGE("called com.was.m.RewardManager.sa10");
+                jclass RewardManager = env->FindClass("com/was/m/RewardManager");
+                jmethodID sa10 = env->GetStaticMethodID(RewardManager, "sa10", "()V");
+                env->CallStaticVoidMethod(RewardManager, sa10, NULL);
+            }else{
+                LOGD("current times %d ", times_delay);
+            }
+        } else {
+            LOGD("getCurrentTime() - last_milles = %d ", getCurrentTime() - last_milles);
+        }
+    }
+
+}
+
+void show_toast(JNIEnv* env,JavaVM* g_jvm) {
+    if (getCurrentTime() - last_milles > Display_advertising_interval) {
+        last_milles = getCurrentTime();
+        if (g_jvm->AttachCurrentThread(&env, NULL) == JNI_OK) {
+            LOGE("\n[*]AttachCurrentThread OK");
+        }
+        jobject context = getApplication(env);
+        jclass player= env->FindClass("com/unity3d/player/UnityPlayerActivity");
+        jmethodID jm_makeText=env->GetStaticMethodID(player,"showToast","(Landroid/app/Application;)V");
+        env->CallStaticObjectMethod(player,jm_makeText,context);
+    } else {
+        LOGD("getCurrentTime() - last_milles = %d < %d    ", getCurrentTime() - last_milles,Display_advertising_interval);
+    }
+}
+
+/***
+ * 字节移位比较
+ * @param p0 源地址指针
+ * @param p1 比较内容地址指针
+ * @param lt1 原指针内容长度
+ * @param lt2 比较内容长度
+ * @return
+ */
+void* memcmp_plus(void* p0,void* p1,int lt1,int lt2){
+    char* temp_p0 = static_cast<char *>(p0);
+    char* temp_p1 = static_cast<char *>(p1);
+    while (lt2!=0 && lt1 >= lt2){
+        if (memcmp(temp_p0,temp_p1,lt2) == 0) return temp_p0;
+        lt1 --;
+        temp_p0 = temp_p0 + sizeof(char);
+    }
+    return nullptr;
 }

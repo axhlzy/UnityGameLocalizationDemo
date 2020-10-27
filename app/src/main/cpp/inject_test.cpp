@@ -11,10 +11,6 @@
 #include <sys/time.h>
 #include <cstring>
 
-#define LOG_TAG "ZZZ"
-#define LOGD(fmt, args...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG,fmt, ##args)
-#define LOGE(fmt, args...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,fmt, ##args)
-
 typedef int (*m_dlopen)(const char* __filename, int __flag);
 typedef int (*m_dlsym)(void* __handle, const char* __symbol);
 
@@ -29,27 +25,11 @@ unsigned int func_y_2 = NULL;
 unsigned int func_y_1 = NULL;
 
 void hook();
-unsigned long getCurrentTime();
-void show_toast();
-void show_sa10();
-
-//记录启动时间
-static long StartTime = getCurrentTime();
-//防止连续点击的延时
-static long Display_advertising_interval = 1*3*1000;
-//开始启动hook的延时
-static long Start_time_delay = 1*1*1000;
-//每几次触发一次
-static int times_delay_s = 1;
-
-char *lib_name = const_cast<char *>("libil2cpp.so");
 
 JNIEnv *env;
 JavaVM *g_jvm;
 unsigned long base = 0;
-unsigned long last_milles = 0;
 
-unsigned int times_delay = 0;
 
 //特值处理
 void Func_SpecificTreatment(void* arg,void* arg1,void* arg2,void* arg3);
@@ -85,42 +65,42 @@ void* new_func_dlsym(void *handle, const char *symbol){
 
 void* new_func_y_6(void* arg,void* arg1,void* arg2,void* arg3){
     LOGD("Enter new_func_y_6");
-    void* ret = old_func_y_6(arg,arg1,arg2,arg3);
+//    void* ret = old_func_y_6(arg,arg1,arg2,arg3);
     Func_SpecificTreatment(arg,arg1,arg2,arg3);
-    return ret;
+    return 0;
 }
 
 void* new_func_y_5(void* arg,void* arg1,void* arg2,void* arg3){
     LOGD("Enter new_func_y_5");
-    show_sa10();
+//    show_sa10(env,g_jvm);
     void* ret = old_func_y_5(arg,arg1,arg2,arg3);
     return ret;
 }
 
 void* new_func_y_4(void* arg,void* arg1,void* arg2,void* arg3){
     LOGD("Enter new_func_y_4");
-    show_sa10();
+    show_sa10(env,g_jvm);
     void* ret = old_func_y_4(arg,arg1,arg2,arg3);
     return ret;
 }
 
 void* new_func_y_3(void* arg,void* arg1,void* arg2,void* arg3){
     LOGD("Enter new_func_y_3");
-//    show_sa10();
+//    show_sa10(env,g_jvm);
     void* ret = old_func_y_3(arg,arg1,arg2,arg3);
     return ret;
 }
 
 void* new_func_y_2(void* arg,void* arg1,void* arg2,void* arg3){
     LOGD("Enter new_func_y_2");
-    show_sa10();
+    show_sa10(env,g_jvm);
     void* ret = old_func_y_2(arg,arg1,arg2,arg3);
     return ret;
 }
 
 void* new_func_y_1(void* arg,void* arg1,void* arg2,void* arg3){
     LOGD("Enter new_func_y_1");
-    show_sa10();
+    show_sa10(env,g_jvm);
     void* ret = old_func_y_1(arg,arg1,arg2,arg3);
     return ret;
 }
@@ -133,52 +113,9 @@ void Func_SpecificTreatment(void* arg,void* arg1,void* arg2,void* arg3){
 //    memcpy(p, (char *) arg1 + sizeof(char) * 16, 2);
 //    hexDump(static_cast<const char *>(p), 16);
 //    LOGD("%d ",p);
-//    old_func_y_3(arg,arg1,arg2,arg3);
-    show_sa10();
+    old_func_y_5(arg,arg1,arg2,arg3);
+//    show_sa10(env,g_jvm);
 }
-
-void show_sa10() {
-    //启动延时
-    if (getCurrentTime()-StartTime < Start_time_delay){
-        LOGE("\n[*]start-up delay residue ：%d",Start_time_delay + StartTime - getCurrentTime());
-    }else{
-        //连续点击判断延时
-        if (getCurrentTime() - last_milles > Display_advertising_interval) {
-            last_milles = getCurrentTime();
-            //每times_delay_s次触发一次
-            if (++times_delay % times_delay_s == 0){
-                if (g_jvm->AttachCurrentThread(&env, NULL) == JNI_OK) {
-                    LOGE("\n[*]AttachCurrentThread OK");
-                }
-                LOGE("called com.was.m.RewardManager.sa10");
-                jclass RewardManager = env->FindClass("com/was/m/RewardManager");
-                jmethodID sa10 = env->GetStaticMethodID(RewardManager, "sa10", "()V");
-                env->CallStaticVoidMethod(RewardManager, sa10, NULL);
-            }else{
-                LOGD("current times %d ", times_delay);
-            }
-        } else {
-            LOGD("getCurrentTime() - last_milles = %d ", getCurrentTime() - last_milles);
-        }
-    }
-
-}
-
-//void show_toast() {
-//    if (getCurrentTime() - last_milles > Display_advertising_interval) {
-//        last_milles = getCurrentTime();
-//        if (g_jvm->AttachCurrentThread(&env, NULL) == JNI_OK) {
-//            LOGE("\n[*]AttachCurrentThread OK");
-//        }
-//        jobject context = getApplication(env);
-//        jclass player= env->FindClass("com/unity3d/player/UnityPlayerActivity");
-//        jmethodID jm_makeText=env->GetStaticMethodID(player,"showToast","(Landroid/app/Application;)V");
-//        env->CallStaticObjectMethod(player,jm_makeText,context);
-//    } else {
-//        LOGD("getCurrentTime() - last_milles = %d < %d    ", getCurrentTime() - last_milles,Display_advertising_interval);
-//    }
-//}
-
 
 jint JNICALL
 JNI_OnLoad(JavaVM *vm, void *reserved) {
@@ -223,8 +160,8 @@ JNI_OnLoad(JavaVM *vm, void *reserved) {
 }
 
 void hook() {
-    func_y_6 = base + 0x280720;
-    func_y_5 = base + 0x2786bc;
+    func_y_6 = base + 0x7dc664;
+    func_y_5 = base + 0x7DC898;
     func_y_4 = base + 0x0;
     func_y_3 = base + 0x0;
     func_y_2 = base + 0x0;
