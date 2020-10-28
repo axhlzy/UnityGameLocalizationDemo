@@ -10,7 +10,7 @@
 
 #include "tools.h"
 
-bool IsDebug = true;
+bool IsDebug = false;
 char *lib_name = const_cast<char *>("libil2cpp.so");
 
 unsigned long last_milles = 0;

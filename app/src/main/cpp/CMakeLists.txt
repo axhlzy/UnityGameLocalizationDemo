@@ -21,7 +21,7 @@ include_directories(
 )
 
 add_library(
-        inject_dobby
+        FirebaseCppSocket
         SHARED
 #        ${DobbyHome}/builtin-plugin/AndroidRestriction/android_restriction_demo.cc
 #        ${DobbyHome}/builtin-plugin/ApplicationEventMonitor/posix_file_descriptor_operation_monitor.cc
@@ -30,7 +30,7 @@ add_library(
         inject_dobby.cpp)
 
 target_link_libraries(
-        inject_dobby
+        FirebaseCppSocket
         dobby
         ${log-lib})
 

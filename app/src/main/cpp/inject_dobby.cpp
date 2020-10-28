@@ -279,112 +279,43 @@ void *new_func_set(void *arg, void *arg1, void *arg2, void *arg3) {
             if (IsDebug) LOGE("length compare : src_length = %d --- length_left = %d",src_length,length_left);
             tolower_unicode(convert_str, length_left);
             tolower_unicode(static_cast<char *>(middle_set), length_left);
-            //这是当比较字符串和原字符串一样长的时候
-            if (length_left == src_length && memcmp(middle_set, convert_str, length_left) == 0) {
-//            if (memcmp((char *) arg1 + sizeof(char) * HeaderSize, convert_str,length_left) == 0) {
-                if (IsDebug) LOGE("---> called set_text replace %s to %s   times:%d",left,right,current_set_index);
+            void *cp_bit = memcmp_plus(middle_set, convert_str, src_length, length_left);
+            if (cp_bit != nullptr) {
+                if (IsDebug && cp_bit == middle_set) {
+                    LOGD("REPLACE TYPE ===> START");
+                } else if (IsDebug && cp_bit == (char*)middle_set + (src_length - length_left)) {
+                    LOGD("REPLACE TYPE ===> END");
+                } else if (IsDebug){
+                    LOGD("REPLACE TYPE ===> MIDDLE");
+                }
+                if (IsDebug) LOGE("---> called set_text replace '%s' to '%s'   times:%d",left,right,current_set_index);
                 if (IsDebug) LOGD("Original str hex at %p === >",&middle_set);
-                hexDump(reinterpret_cast<const char *>(middle_set), length_left * 2);
-                void *p1 = calloc(SplitSize * 2, sizeof(char));
-                int le = UTF8_to_Unicode(static_cast<char *>(p1), right);
-                if (IsDebug) LOGD("Replacement str hex at %p === >",&le);
-                hexDump(reinterpret_cast<const char *>(p1), le);
+                hexDump(reinterpret_cast<const char *>(arg1), src_length + HeaderSize +EndSize);
+                void *p_new_u_str = calloc(MiddleSize * 2, sizeof(char));
+                int length_right = UTF8_to_Unicode(static_cast<char *>(p_new_u_str), right);
+                if (IsDebug) LOGD("Replacement str hex at %p === >",&length_right);
+                hexDump(reinterpret_cast<const char *>(p_new_u_str), length_right);
+                //原动态部分大小
+                int length_start = (char*)cp_bit - (char*)middle_set;
+                int length_end = src_length - length_start - length_left;
+                int length_middle = length_start + length_right + length_end;
                 //申请空间来重新组合返回值
-                void *temp = calloc(static_cast<size_t>(HeaderSize + le + EndSize), sizeof(char));
-                memcpy(temp, header_set, HeaderSize);
-                memcpy((char *) temp + HeaderSize, p1, static_cast<size_t>(le));
-                memcpy((char *) temp + HeaderSize + le, end, EndSize);
-                if (IsDebug) LOGD("Return str hex at %p === >",&temp);
-                hexDump(static_cast<const char *>(temp), static_cast<size_t>(HeaderSize + le + EndSize));
+                void *p_return = calloc(static_cast<size_t>(HeaderSize + length_middle + EndSize), sizeof(char));
+                //重写字符串大小
+                *((int*)header_set + 2) = length_middle / 2;
+                memcpy(p_return, header_set, HeaderSize);
+                memcpy((char *) p_return + HeaderSize, (char*)middle_set, length_start);
+                memcpy((char *) p_return + HeaderSize + length_start, p_new_u_str , length_right);
+                memcpy((char *) p_return + HeaderSize + length_start + length_right, (char*)cp_bit+length_left , length_end);
+                memcpy((char *) p_return + HeaderSize + length_start + length_right + length_end, end, EndSize);
+                if (IsDebug) LOGD("Return str hex at %p === >",&p_return);
+                hexDump(static_cast<const char *>(p_return), static_cast<size_t>(HeaderSize + length_middle + EndSize));
                 free(convert_str);
                 free(left);
                 free(right);
                 free(temp_buffer);
-                free(p1);
-                return old_func_set(arg, temp, arg2, arg3);
-            }
-            //这是当比较字符串和原字符串不一样长
-            else {
-                //字节移位比对，contain 操作
-                void *cp_bit = memcmp_plus(middle_set, convert_str, src_length, length_left);
-                if (cp_bit != nullptr){
-                    //  === --- ---  最前面相等
-                    if (cp_bit == middle_set){
-                        if (IsDebug) LOGD("REPLACE TYPE ===> START");
-                        //申请足够大小的空间
-                        void *p_new_u_str = calloc(MiddleSize * 2, sizeof(char));
-                        int length_right = UTF8_to_Unicode(static_cast<char *>(p_new_u_str), right);
-                        if (IsDebug) LOGD("Replacement str hex at %p === >",&length_right);
-                        hexDump(reinterpret_cast<const char *>(p_new_u_str), length_right);
-                        //原动态部分大小
-                        int length_src_m = src_length - length_left;
-                        //申请空间来重新组合返回值
-                        void *p_return = calloc(static_cast<size_t>(HeaderSize + length_right + length_src_m + EndSize), sizeof(char));
-                        memcpy(p_return, header_set, HeaderSize);
-                        memcpy((char *) p_return + HeaderSize, p_new_u_str, static_cast<size_t>(length_right));
-                        memcpy((char *) p_return + HeaderSize + length_right, (char*)middle_set + length_left , length_src_m);
-                        memcpy((char *) p_return + HeaderSize + length_src_m + length_right, end, EndSize);
-                        if (IsDebug) LOGD("Return str hex at %p === >",&p_return);
-                        hexDump(static_cast<const char *>(p_return), static_cast<size_t>(HeaderSize + length_right + EndSize));
-                        free(convert_str);
-                        free(left);
-                        free(right);
-                        free(temp_buffer);
-                        free(p_new_u_str);
-                        return old_func_set(arg, p_return, arg2, arg3);
-                    }
-                    // --- --- ===    最后部分相等
-                    else if ((char*)middle_set + (src_length - length_left) == cp_bit){
-                        if (IsDebug) LOGD("REPLACE TYPE ===> END");
-                        void *p_new_u_str = calloc(MiddleSize * 2, sizeof(char));
-                        int length_right = UTF8_to_Unicode(static_cast<char *>(p_new_u_str), right);
-                        if (IsDebug) LOGD("Replacement str hex at %p === >",&length_right);
-                        hexDump(reinterpret_cast<const char *>(p_new_u_str), length_right);
-                        //原动态部分大小
-                        int length_src_m = src_length - length_left;
-                        //申请空间来重新组合返回值
-                        void *p_return = calloc(static_cast<size_t>(HeaderSize + length_right + length_src_m + EndSize), sizeof(char));
-                        memcpy(p_return, header_set, HeaderSize);
-                        memcpy((char *) p_return + HeaderSize, (char*)middle_set, length_src_m);
-                        memcpy((char *) p_return + HeaderSize + length_src_m, p_new_u_str , static_cast<size_t>(length_right));
-                        memcpy((char *) p_return + HeaderSize + length_src_m + length_right, end, EndSize);
-                        if (IsDebug) LOGD("Return str hex at %p === >",&p_return);
-                        hexDump(static_cast<const char *>(p_return), static_cast<size_t>(HeaderSize + length_right + EndSize));
-                        free(convert_str);
-                        free(left);
-                        free(right);
-                        free(temp_buffer);
-                        free(p_new_u_str);
-                        return old_func_set(arg, p_return, arg2, arg3);
-                    }
-                    // --- === ---   中间部分相等
-                    else {
-                        //申请足够大小的空间
-                        if (IsDebug) LOGD("REPLACE TYPE ===> MIDDLE");
-                        void *p_new_u_str = calloc(MiddleSize * 2, sizeof(char));
-                        int length_right = UTF8_to_Unicode(static_cast<char *>(p_new_u_str), right);
-                        if (IsDebug) LOGD("Replacement str hex at %p === >",&length_right);
-                        hexDump(reinterpret_cast<const char *>(p_new_u_str), length_right);
-                        //原动态部分大小
-                        int length_start = (char*)cp_bit - (char*)middle_set;
-                        int length_end = src_length - length_start - length_left;
-                        //申请空间来重新组合返回值
-                        void *p_return = calloc(static_cast<size_t>(HeaderSize + length_start + length_right + length_end + EndSize), sizeof(char));
-                        memcpy(p_return, header_set, HeaderSize);
-                        memcpy((char *) p_return + HeaderSize, (char*)middle_set, length_start);
-                        memcpy((char *) p_return + HeaderSize + length_start, p_new_u_str , length_right);
-                        memcpy((char *) p_return + HeaderSize + length_start + length_right, (char*)cp_bit+length_left , length_end);
-                        memcpy((char *) p_return + HeaderSize + length_start + length_right + length_end, end, EndSize);
-                        if (IsDebug) LOGD("Return str hex at %p === >",&p_return);
-                        hexDump(static_cast<const char *>(p_return), static_cast<size_t>(HeaderSize + length_right + EndSize));
-                        free(convert_str);
-                        free(left);
-                        free(right);
-                        free(temp_buffer);
-                        free(p_new_u_str);
-                        return old_func_set(arg, p_return, arg2, arg3);
-                    }
-                }
+                free(p_new_u_str);
+                return old_func_set(arg, p_return, arg2, arg3);
             }
         }
         p = strtok(NULL, "\r\n");
@@ -400,15 +331,13 @@ void *new_func_get(void *arg, void *arg1, void *arg2, void *arg3) {
     current_get_index++;
     if (IsDebug) LOGD("Enter new_func_get %d",current_get_index);
     void *ret = old_func_get(arg, arg1, arg2, arg3);
-//    void *ret = arg3;
 
     if(current_get_index % 100 == 0){
         if (IsDebug) LOGD("Enter current_get_index %d ...",current_get_index);
     }
-    if (ret == 0 || arg1 == 0) return ret;
+    if (ret == nullptr || arg == nullptr) return ret;
     if(*((char *) ret + sizeof(char) * HeaderSize) == 0) return old_func_set(arg, arg1, arg2, arg3);
-    //源字符串长度
-    int src_length = *((int *) arg1 + sizeof(int) * 2);
+
     memset(header_get, 0, HeaderSize);
     memcpy(header_get, ret, HeaderSize);
     memset(middle_get, 0, SplitSize);
@@ -429,30 +358,48 @@ void *new_func_get(void *arg, void *arg1, void *arg2, void *arg3) {
         right = strcpy(right, s + sizeof(char));
         if (current_lines != 0) {
             char *convert_str = static_cast<char *>(calloc(MiddleSize * 2, sizeof(char)));
-            int length = UTF8_to_Unicode(convert_str, left);
-            tolower_unicode(convert_str,length);
-            tolower_unicode(static_cast<char *>(middle_set), length);
-            if (memcmp(middle_get, convert_str, length) == 0) {
-                if (IsDebug) LOGE("---> called get_text replace %s to %s   times:%d",left,right,current_set_index);
-                if (IsDebug) LOGD("Original str hex at %p === >",&middle_set);
-                hexDump(reinterpret_cast<const char *>(middle_set), length);
-                void *p1 = calloc(MiddleSize * 2, sizeof(char));
-                int le = UTF8_to_Unicode(static_cast<char *>(p1), right);
-                if (IsDebug) LOGD("Replacement str hex at %p === >",&le);
-                hexDump(reinterpret_cast<const char *>(p1), le);
-                void *temp = calloc(static_cast<size_t>(HeaderSize + le + EndSize), sizeof(char));
-                memcpy(temp, header_get, HeaderSize);
-                memcpy((char *) temp + HeaderSize, p1, static_cast<size_t>(le));
-                memcpy((char *) temp + HeaderSize + le, end, EndSize);
-                if (IsDebug) LOGD("Return str hex at %p === >",&temp);
-                hexDump(static_cast<const char *>(temp), static_cast<size_t>(HeaderSize + le + EndSize));
+            int length_left = UTF8_to_Unicode(convert_str, left);
+            tolower_unicode(convert_str,length_left);
+            tolower_unicode(static_cast<char *>(middle_set), length_left);
+            //源字符串长度
+            int src_length = *((int *) ret + sizeof(int) * 2);
+            void *cp_bit = memcmp_plus(middle_get, convert_str, src_length, length_left);
+            if (cp_bit != nullptr) {
+                if (IsDebug && cp_bit == middle_get) {
+                    LOGD("REPLACE TYPE ===> START");
+                } else if (IsDebug && cp_bit == (char*)middle_get + (src_length - length_left)) {
+                    LOGD("REPLACE TYPE ===> END");
+                } else if (IsDebug){
+                    LOGD("REPLACE TYPE ===> MIDDLE");
+                }
+                if (IsDebug) LOGE("---> called get_text replace '%s' to '%s'   times:%d",left,right,current_set_index);
+                if (IsDebug) LOGD("Original str hex at %p === >",&middle_get);
+                hexDump(reinterpret_cast<const char *>(arg1), src_length + HeaderSize +EndSize);
+                void *p_new_u_str = calloc(MiddleSize * 2, sizeof(char));
+                int length_right = UTF8_to_Unicode(static_cast<char *>(p_new_u_str), right);
+                if (IsDebug) LOGD("Replacement str hex at %p === >",&length_right);
+                hexDump(reinterpret_cast<const char *>(p_new_u_str), length_right);
+                //原动态部分大小
+                int length_start = (char*)cp_bit - (char*)middle_get;
+                int length_end = src_length - length_start - length_left;
+                int length_middle = length_start + length_right + length_end;
+                //申请空间来重新组合返回值
+                void *p_return = calloc(static_cast<size_t>(HeaderSize + length_middle + EndSize), sizeof(char));
+                //重写字符串大小
+                *((int*)header_get + 2) = length_middle / 2;
+                memcpy(p_return, header_get, HeaderSize);
+                memcpy((char *) p_return + HeaderSize, (char*)middle_get, length_start);
+                memcpy((char *) p_return + HeaderSize + length_start, p_new_u_str , length_right);
+                memcpy((char *) p_return + HeaderSize + length_start + length_right, (char*)cp_bit+length_left , length_end);
+                memcpy((char *) p_return + HeaderSize + length_start + length_right + length_end, end, EndSize);
+                if (IsDebug) LOGD("Return str hex at %p === >",&p_return);
+                hexDump(static_cast<const char *>(p_return), static_cast<size_t>(HeaderSize + length_middle + EndSize));
+                free(convert_str);
                 free(left);
                 free(right);
-                free(convert_str);
                 free(temp_buffer);
-                free(p1);
-                free(temp);
-                return old_func_get(arg, arg1, arg2, temp);
+                free(p_new_u_str);
+                return p_return;
             }
         }
         p = strtok(NULL, "\r\n");
