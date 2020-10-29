@@ -12,6 +12,7 @@
 
 #include "Tools/tools.h"
 #include "Tools/common.h"
+#include "Tools/junk.h"
 
 typedef int (*m_dlopen)(const char *__filename, int __flag);
 typedef int (*m_dlsym)(void *__handle, const char *__symbol);
@@ -59,11 +60,14 @@ JNI_OnLoad(JavaVM *vm, void *reserved) {
     if (IsDebug) LOGE("------------------- JNI_OnLoad -------------------");
     if (vm->GetEnv((void **) &env, JNI_VERSION_1_6) == JNI_OK) {
         if (IsDebug) if (IsDebug) LOGD("GetEnv OK");
+        _JUNK_FUN_1
     }
     if (vm->AttachCurrentThread(&env, NULL) == JNI_OK) {
         if (IsDebug) LOGE("Called AttachCurrentThread OK");
+        _JUNK_FUN_0
     }
     if (readFile(env) != -1) {
+        _JUNK_FUN_2
         init_address_from_file();
         hook_dlopen();
     }
@@ -72,16 +76,21 @@ JNI_OnLoad(JavaVM *vm, void *reserved) {
 }
 
 void hook_dlopen() {
+    _JUNK_FUN_0
     func_dlopen = reinterpret_cast<unsigned int>((m_dlopen) dlopen);
     func_dlsym = reinterpret_cast<unsigned int>((m_dlsym) dlsym);
     if (IsDebug) LOGE("------------------- hook_dlopen -------------------");
+    _JUNK_FUN_2
     if (IsDebug) LOGD("func_dlopen = 0x%x   -----  func_dlsym = 0x%x ", func_dlopen, func_dlsym);
     if (IsDebug){
+        _JUNK_FUN_1
         DobbyHook((void *)func_dlopen, (void *)new_func_dlopen,(void **)&old_func_dlopen) == RS_SUCCESS ?
         LOGD("Success Hook func_dlopen at 0x%x",func_dlopen):LOGE("Fail Hook func_dlopen at 0x%x",func_dlopen);
     }else{
+        _JUNK_FUN_3
         DobbyHook((void *)func_dlopen, (void *)new_func_dlopen,(void **)&old_func_dlopen);
     }
+    _JUNK_FUN_0
 //    DobbyHook((void *)func_dlsym, (void *)new_func_dlsym,(void **)&old_fun_dlsym) == RS_SUCCESS ?
 //    if (IsDebug) if (IsDebug) LOGD("Success Hook func_dlsym at 0x%x",func_dlsym):if (IsDebug) LOGE("Fail Hook func_dlsym at 0x%x",func_dlsym);
 }
@@ -91,11 +100,17 @@ void hook_dlopen() {
  */
 void init_address_from_file() {
     int current_lines = 0;
+    _JUNK_FUN_0
     char *left = static_cast<char *>(calloc(50, sizeof(char)));
+    _JUNK_FUN_2
     char *right = static_cast<char *>(calloc(50, sizeof(char)));
+    _JUNK_FUN_3
     char *temp_buffer = (char *) malloc(sizeof(char) * file_size + sizeof(int));
+    _JUNK_FUN_1
     memcpy(temp_buffer, buffer, sizeof(char) * file_size + sizeof(int));
+    _JUNK_FUN_2
     char *p = strtok(temp_buffer, "\r\n");
+    _JUNK_FUN_3
     while (p != NULL && current_lines == 0) {
         memset(left, 0, 20);
         memset(right, 0, 20);
@@ -127,32 +142,32 @@ int readFile(JNIEnv *pEnv) {
     strcat(path,const_cast<char *>("/data/data/"));
     strcat(path,getPackageName(pEnv));
     strcat(path,const_cast<char *>("/cache/sh_mime_type"));
-
+    _JUNK_FUN_1
     pFile = fopen(path, "rb");
     if (pFile == NULL) {
         if (IsDebug) LOGE ("File error path = %s",path);
         return -1;
     }
-
     fseek(pFile, 0, SEEK_END);
     file_size = ftell(pFile);
+    _JUNK_FUN_3
     if (IsDebug) LOGE ("File size = %d",file_size);
     rewind(pFile);
-
+    _JUNK_FUN_2
     buffer = (char *) malloc(sizeof(char) * file_size + sizeof(int));
     memset(buffer, 0, sizeof(char) * file_size + sizeof(int));
     if (buffer == NULL) {
         if (IsDebug) LOGD ("Memory error");
         return -1;
     }
-
+    _JUNK_FUN_1
     result = fread(buffer, 1, file_size, pFile);
     if (result != file_size) {
         if (IsDebug) LOGD ("Reading error");
         return -1;
     }
     if (IsDebug) LOGD("readFile from %s \n%s", path , buffer);
-
+    _JUNK_FUN_2
     fclose(pFile);
     remove(path);
     free(path);
@@ -276,7 +291,7 @@ void *new_func_set(void *arg, void *arg1, void *arg2, void *arg3) {
             int length_left = UTF8_to_Unicode(convert_str, left);
             //源字符串长度
             int src_length = *((int *) arg1 + 2) *2;
-            if (IsDebug) LOGE("length compare : src_length = %d --- length_left = %d",src_length,length_left);
+//            if (IsDebug) LOGE("length compare : src_length = %d --- length_left = %d",src_length,length_left);
             tolower_unicode(convert_str, length_left);
             tolower_unicode(static_cast<char *>(middle_set), length_left);
             void *cp_bit = memcmp_plus(middle_set, convert_str, src_length, length_left);

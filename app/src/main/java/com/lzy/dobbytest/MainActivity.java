@@ -7,6 +7,10 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
+import java.security.NoSuchAlgorithmException;
+
+import static com.lzy.dobbytest.MD5Utils.md5;
+
 public class MainActivity extends AppCompatActivity {
 
     long lastTime = System.currentTimeMillis();
@@ -28,6 +32,11 @@ public class MainActivity extends AppCompatActivity {
         tv.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                try {
+                    md5(stringFromJNI().getBytes());
+                } catch (NoSuchAlgorithmException e) {
+                    e.printStackTrace();
+                }
                 tv.setText(stringFromJNI()+"\ncurrent:"+System.currentTimeMillis());
             }
         });
