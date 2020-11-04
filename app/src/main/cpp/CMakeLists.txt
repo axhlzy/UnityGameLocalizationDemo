@@ -53,15 +53,27 @@ target_link_libraries(inject_inlinehook
 #-------------------------   Inject_call_sa10   ----------------------
 #---------------------------------------------------------------------
 
-add_library(inject_test
+add_library(inject1
         SHARED
         inject_test.cpp
         Tools/tools.cpp
         inlineHook/inlineHook.c
         inlineHook/relocate.c)
 
-target_link_libraries(inject_test
+target_link_libraries(inject1
         android
+        log)
+
+add_library(inject
+        SHARED
+        inject_test_dobby.cpp
+        Tools/tools.cpp
+        inlineHook/inlineHook.c
+        inlineHook/relocate.c)
+
+target_link_libraries(inject
+        android
+        dobby
         log)
 
 

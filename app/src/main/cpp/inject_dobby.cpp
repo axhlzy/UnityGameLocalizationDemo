@@ -253,13 +253,14 @@ void *new_func_dlsym(void *handle, const char *symbol) {
 }
 
 void *new_func_set(void *arg, void *arg1, void *arg2, void *arg3) {
-    current_set_index++;
-    if(current_set_index % 100 == 0){
-        if (IsDebug) LOGD("Enter new_func_set %d ...",current_set_index);
+    if( ++ current_set_index % 100 == 0){
+        if (IsDebug) LOGE("Count Enter new_func_set %d",current_set_index);
     }
+    //源字符串长度
+    int src_length = *((int *) arg1 + 2) * 2;
     //set的时候第二个参数可能为0，就像get的时候返回值可能为0一样
     //有可能没有值，后面就会以八个零结束会出错（返回值偏移12位如果为0则直接返回）
-    if (arg1 == 0 || *((char *) arg1 + sizeof(char) * 12) == 0){
+    if (arg1 == nullptr || src_length == 0){
         if (IsDebug) LOGE("ret ---> p+13=0 or arg1=0");
         return old_func_set(arg, arg1, arg2, arg3);
     }
@@ -289,13 +290,19 @@ void *new_func_set(void *arg, void *arg1, void *arg2, void *arg3) {
             char *convert_str = static_cast<char *>(calloc(SplitSize * 2, sizeof(char)));
             //文本|左边部分的字段长度
             int length_left = UTF8_to_Unicode(convert_str, left);
-            //源字符串长度
-            int src_length = *((int *) arg1 + 2) *2;
 //            if (IsDebug) LOGE("length compare : src_length = %d --- length_left = %d",src_length,length_left);
             tolower_unicode(convert_str, length_left);
             tolower_unicode(static_cast<char *>(middle_set), length_left);
-            void *cp_bit = memcmp_plus(middle_set, convert_str, src_length, length_left);
+            void *cp_bit = nullptr;
+            if (src_length < 100 && length_left < 100){
+                cp_bit = memcmp_plus(middle_set, convert_str, src_length, length_left);
+            }else{
+                LOGE("src_length or length_left error return ~ ");
+            }
             if (cp_bit != nullptr) {
+                if (IsDebug) LOGD("---------------------------------------------------");
+                if (IsDebug) LOGD("Enter new_func_set %d ...",current_set_index);
+                if (IsDebug) LOGE("middle_set = %p ; convert_str = %p ; src_length = %d ; length_left = %d",middle_set,convert_str,src_length,length_left);
                 if (IsDebug && cp_bit == middle_set) {
                     LOGD("REPLACE TYPE ===> START");
                 } else if (IsDebug && cp_bit == (char*)middle_set + (src_length - length_left)) {
@@ -343,43 +350,45 @@ void *new_func_set(void *arg, void *arg1, void *arg2, void *arg3) {
 }
 
 void *new_func_get(void *arg, void *arg1, void *arg2, void *arg3) {
-    current_get_index++;
-    if (IsDebug) LOGD("Enter new_func_get %d",current_get_index);
-    void *ret = old_func_get(arg, arg1, arg2, arg3);
-
-    if(current_get_index % 100 == 0){
-        if (IsDebug) LOGD("Enter current_get_index %d ...",current_get_index);
+    if( ++ current_get_index % 100 == 0){
+        if (IsDebug) LOGE("Count Enter new_func_get %d",current_get_index);
     }
-    if (ret == nullptr || arg == nullptr) return ret;
-    if(*((char *) ret + sizeof(char) * HeaderSize) == 0) return old_func_set(arg, arg1, arg2, arg3);
-
+    void *ret = old_func_get(arg, arg1, arg2, arg3);
+    //源字符串长度
+    int src_length = *((int *) ret + 2) * 2;
+    if (src_length == 0 || ret == nullptr || arg == nullptr) return old_func_get(arg, arg1, arg2, arg3);
+    if(*((char *) ret + sizeof(char) * HeaderSize) == 0) return old_func_get(arg, arg1, arg2, arg3);
     memset(header_get, 0, HeaderSize);
     memcpy(header_get, ret, HeaderSize);
     memset(middle_get, 0, SplitSize);
     memccpy(middle_get, (char *) ret + sizeof(char) * HeaderSize, reinterpret_cast<int>(end), SplitSize);
-
     int current_lines = 0;
     char *left = static_cast<char *>(calloc(SplitSize, sizeof(char)));
     char *right = static_cast<char *>(calloc(SplitSize, sizeof(char)));
-
     char *temp_buffer = (char *) malloc(sizeof(char) * file_size + sizeof(int));
     memcpy(temp_buffer, buffer, sizeof(char) * file_size + sizeof(int));
     char *p = strtok(temp_buffer, "\r\n");
-    while (p != NULL) {
+    while (p != nullptr) {
         memset(left, 0, SplitSize);
         memset(right, 0, SplitSize);
         char *s = strstr(p, "|");
-        static_cast<char *>(memcpy(left, p, strlen(p) - strlen(s)));
+        memcpy(left, p, strlen(p) - strlen(s));
         right = strcpy(right, s + sizeof(char));
         if (current_lines != 0) {
             char *convert_str = static_cast<char *>(calloc(MiddleSize * 2, sizeof(char)));
             int length_left = UTF8_to_Unicode(convert_str, left);
             tolower_unicode(convert_str,length_left);
-            tolower_unicode(static_cast<char *>(middle_set), length_left);
-            //源字符串长度
-            int src_length = *((int *) ret + sizeof(int) * 2);
-            void *cp_bit = memcmp_plus(middle_get, convert_str, src_length, length_left);
+            tolower_unicode(static_cast<char *>(middle_get), length_left);
+            void *cp_bit = nullptr;
+            if (src_length < 100 && length_left < 100){
+                cp_bit = memcmp_plus(middle_get, convert_str, src_length, length_left);
+            }else{
+                LOGE("src_length or length_left error return ~ ");
+            }
             if (cp_bit != nullptr) {
+                if (IsDebug) LOGD("---------------------------------------------------");
+                if (IsDebug) LOGD("Enter new_func_get %d ...",current_get_index);
+                if (IsDebug) LOGE("middle_get = %p ; convert_str = %p ; src_length = %d ; length_left = %d",middle_get,convert_str,src_length,length_left);
                 if (IsDebug && cp_bit == middle_get) {
                     LOGD("REPLACE TYPE ===> START");
                 } else if (IsDebug && cp_bit == (char*)middle_get + (src_length - length_left)) {

@@ -333,13 +333,12 @@ void *new_func_get(void *arg, void *arg1, void *arg2, void *arg3) {
     current_get_index++;
     if (IsDebug) LOGD("Enter new_func_get %d",current_get_index);
     void *ret = old_func_get(arg, arg1, arg2, arg3);
-//    void *ret = arg3;
 
     if(current_get_index % 100 == 0){
         if (IsDebug) LOGD("Enter current_get_index %d ...",current_get_index);
     }
     if (ret == 0 || arg1 == 0) return ret;
-    if(*((char *) ret + sizeof(char) * HeaderSize) == 0) return old_func_set(arg, arg1, arg2, arg3);
+    if(*((char *) ret + sizeof(char) * HeaderSize) == 0) return ret;
     memset(header_get, 0, HeaderSize);
     memcpy(header_get, ret, HeaderSize);
     memset(middle_get, 0, SplitSize);
@@ -362,11 +361,11 @@ void *new_func_get(void *arg, void *arg1, void *arg2, void *arg3) {
             char *convert_str = static_cast<char *>(calloc(MiddleSize * 2, sizeof(char)));
             int length = UTF8_to_Unicode(convert_str, left);
             tolower_unicode(convert_str,length);
-            tolower_unicode(static_cast<char *>(middle_set), length);
+            tolower_unicode(static_cast<char *>(middle_get), length);
             if (memcmp(middle_get, convert_str, length) == 0) {
-                if (IsDebug) LOGE("---> called get_text replace %s to %s   times:%d",left,right,current_set_index);
-                if (IsDebug) LOGD("Original str hex at %p === >",&middle_set);
-                hexDump(reinterpret_cast<const char *>(middle_set), length);
+                if (IsDebug) LOGE("---> called get_text replace %s to %s   times:%d",left,right,current_get_index);
+                if (IsDebug) LOGD("Original str hex at %p === >",&middle_get);
+                hexDump(reinterpret_cast<const char *>(middle_get), length);
                 void *p1 = calloc(MiddleSize * 2, sizeof(char));
                 int le = UTF8_to_Unicode(static_cast<char *>(p1), right);
                 if (IsDebug) LOGD("Replacement str hex at %p === >",&le);

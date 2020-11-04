@@ -10,6 +10,7 @@
 #include <dlfcn.h>
 #include <sys/time.h>
 #include <cstring>
+#include <dobby.h>
 
 typedef int (*m_dlopen)(const char* __filename, int __flag);
 typedef int (*m_dlsym)(void* __handle, const char* __symbol);
@@ -35,8 +36,8 @@ unsigned long base = 0;
 void Func_SpecificTreatment(void* arg,void* arg1,void* arg2,void* arg3);
 //原函数指针
 void* (*old_func_dlopen)(const char* filename, int flags, const void* caller_addr) = NULL;
-
 void* (*old_fun_dlsym)(void* /*handle*/, const char* /*symbol*/) = NULL;
+
 void* (*old_func_y_6)(void*,void*,void*,void*) = NULL;
 void* (*old_func_y_5)(void*,void*,void*,void*) = NULL;
 void* (*old_func_y_4)(void*,void*,void*,void*) = NULL;
@@ -46,7 +47,7 @@ void* (*old_func_y_2)(void*,void*,void*,void*) = NULL;
 void* (*old_func_y_1)(void*,void*,void*,void*) = NULL;
 
 void* new_func_dlopen(const char *filename, int flags, const void *caller_addr) {
-//    void* p = old_func_dlopen(filename,flags,caller_addr);
+    void* p = old_func_dlopen(filename,flags,caller_addr);
     LOGD("_loader_dlopen('%s','%d','%p')",filename,flags,caller_addr);
     if(strstr(filename,"KJIHGF") != NULL && caller_addr !=0){
         base = find_module_by_name(lib_name);
@@ -137,23 +138,22 @@ JNI_OnLoad(JavaVM *vm, void *reserved) {
     LOGD("func_dlopen = 0x%x   -----  func_dlsym = 0x%x ",func_dlopen,func_dlsym);
     LOGE("------------------- InlineHook -------------------");
 
-    //注册Hook信息
-    registerInlineHook((uint32_t) func_dlopen, (uint32_t) new_func_dlopen, (uint32_t **) &old_func_dlopen)==ELE7EN_OK ?
-    LOGD("Success Hook func_dlopen at 0x%x",func_dlopen):LOGE("Fail Hook func_dlopen at 0x%x",func_dlopen);
-
-//    registerInlineHook((uint32_t) func_dlsym, (uint32_t) new_func_dlsym, (uint32_t **) &old_fun_dlsym)==ELE7EN_OK ?
-//    LOGD("Success Hook func_dlsym at 0x%x",func_dlsym):LOGE("Fail Hook func_dlsym at 0x%x",func_dlsym);
 
 
     base = find_module_by_name("libKJIHGF");
     if (base == 0){
         LOGE("Find %s at 0x%x", lib_name, base);
         LOGE("Enable hook dlopen");
-        inlineHook(func_dlopen);
+
+        DobbyHook((void *)func_dlopen, (void *)new_func_dlopen,(void **)&old_func_dlopen) == RS_SUCCESS ?
+        LOGD("Success Hook func_dlopen at 0x%x",func_dlopen):LOGE("Fail Hook func_dlopen at 0x%x",func_dlopen);
+
+//        DobbyHook((void *)func_dlsym, (void *)new_func_dlsym,(void **)&old_fun_dlsym) == RS_SUCCESS ?
+//        LOGD("Success Hook func_dlsym at 0x%x",func_dlsym):LOGE("Fail Hook func_dlsym at 0x%x",func_dlsym);
+
     }else{
         hook();
     }
-//    inlineHook(func_dlsym);
 
     LOGE("-------------------  Function  -------------------");
 
@@ -169,40 +169,27 @@ void hook() {
     func_y_1 = base + 0x0;
 
     if (func_y_6 != base)
-    registerInlineHook((uint32_t) func_y_6, (uint32_t) new_func_y_6,
-                       (uint32_t **) &old_func_y_6) == ELE7EN_OK ?
-    LOGD("Success Hook func_y_6 at 0x%x", func_y_6) : LOGE(
-            "Fail Hook func_y_6 at 0x%x", func_y_6);
+        DobbyHook((void *)func_y_6, (void *)new_func_y_6,(void **)&old_func_y_6) == RS_SUCCESS ?
+        LOGD("Success Hook func_y_6 at 0x%x",func_y_6):LOGE("Fail Hook func_y_6 at 0x%x",func_y_6);
 
     if (func_y_5 != base)
-    registerInlineHook((uint32_t) func_y_5, (uint32_t) new_func_y_5,
-                       (uint32_t **) &old_func_y_5) == ELE7EN_OK ?
-    LOGD("Success Hook func_y_5 at 0x%x", func_y_5) : LOGE(
-            "Fail Hook func_y_5 at 0x%x", func_y_5);
+        DobbyHook((void *)func_y_5, (void *)new_func_y_5,(void **)&old_func_y_5) == RS_SUCCESS ?
+        LOGD("Success Hook func_y_5 at 0x%x",func_y_5):LOGE("Fail Hook func_y_5 at 0x%x",func_y_5);
 
     if (func_y_4 != base)
-    registerInlineHook((uint32_t) func_y_4, (uint32_t) new_func_y_4,
-                       (uint32_t **) &old_func_y_4) == ELE7EN_OK ?
-    LOGD("Success Hook func_y_4 at 0x%x", func_y_4) : LOGE(
-            "Fail Hook func_y_4 at 0x%x", func_y_4);
+        DobbyHook((void *)func_y_4, (void *)new_func_y_4,(void **)&old_func_y_4) == RS_SUCCESS ?
+        LOGD("Success Hook func_y_4 at 0x%x",func_y_4):LOGE("Fail Hook func_y_4 at 0x%x",func_y_4);
 
     if (func_y_3 != base)
-    registerInlineHook((uint32_t) func_y_3, (uint32_t) new_func_y_3,
-                       (uint32_t **) &old_func_y_3) == ELE7EN_OK ?
-    LOGD("Success Hook func_y_3 at 0x%x", func_y_3) : LOGE(
-            "Fail Hook func_y_3 at 0x%x", func_y_3);
+        DobbyHook((void *)func_y_3, (void *)new_func_y_3,(void **)&old_func_y_3) == RS_SUCCESS ?
+        LOGD("Success Hook func_y_3 at 0x%x",func_y_3):LOGE("Fail Hook func_y_3 at 0x%x",func_y_3);
 
     if (func_y_2 != base)
-    registerInlineHook((uint32_t) func_y_2, (uint32_t) new_func_y_2,
-                       (uint32_t **) &old_func_y_2) == ELE7EN_OK ?
-    LOGD("Success Hook func_y_2 at 0x%x", func_y_2) : LOGE(
-            "Fail Hook func_y_2 at 0x%x", func_y_2);
+        DobbyHook((void *)func_y_2, (void *)new_func_y_2,(void **)&old_func_y_2) == RS_SUCCESS ?
+        LOGD("Success Hook func_y_2 at 0x%x",func_y_2):LOGE("Fail Hook func_y_2 at 0x%x",func_y_2);
 
     if (func_y_1 != base)
-    registerInlineHook((uint32_t) func_y_1, (uint32_t) new_func_y_1,
-                       (uint32_t **) &old_func_y_1) == ELE7EN_OK ?
-    LOGD("Success Hook func_y_1 at 0x%x", func_y_1) : LOGE(
-            "Fail Hook func_y_1 at 0x%x", func_y_1);
+        DobbyHook((void *)func_y_1, (void *)new_func_y_1,(void **)&old_func_y_1) == RS_SUCCESS ?
+        LOGD("Success Hook func_y_1 at 0x%x",func_y_1):LOGE("Fail Hook func_y_1 at 0x%x",func_y_1);
 
-    inlineHookAll();
 }
