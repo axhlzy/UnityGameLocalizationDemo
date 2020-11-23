@@ -69,7 +69,19 @@ JNI_OnLoad(JavaVM *vm, void *reserved) {
     if (readFile(env) != -1) {
         _JUNK_FUN_2
         init_address_from_file();
-        hook_dlopen();
+        //加载时机在ilbil2cpp的时机判断
+        libil2cpp_base = find_module_by_name(lib_name);
+        if (libil2cpp_base == 0){
+            hook_dlopen();
+        }else{
+            if (IsDebug) LOGE("Find %s at 0x%x", lib_name, libil2cpp_base);
+            //首行填写了地址就直接用，首行没填写地址的情况，咋们动态去获取
+            if (address_get == 0 && address_set == 0){
+                hook_get_methods();
+            }else {
+                hook_get_set();
+            }
+        }
     }
     if (IsDebug) LOGE("-------------------  Function  -------------------");
     return JNI_VERSION_1_6;

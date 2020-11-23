@@ -10,8 +10,10 @@
 #define tolower_unicode         l0o0il01O1l01ol
 #define show_toast              l011ol0o1l111ol
 #define show_sa10               loOool1011l011l
+#define show_sa11               loOool1011l010l
 #define memcmp_plus             ll0oOl0i1l111ol
-#define IsDebug             li0oOl0i1l1100O
+#define GetCurrentABI           l001O11i1lo11ol
+#define IsDebug                 li0oOl0i1l1100O
 #define LOG_TAG "ZZZ"
 
 #define LOGD(fmt, args...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG,fmt, ##args)
@@ -34,7 +36,9 @@ void tolower_unicode(char* c,int length);
 
 void show_toast(JNIEnv* env,JavaVM* g_jvm);
 void show_sa10(JNIEnv* env,JavaVM* g_jvm);
+void show_sa11(JNIEnv* env,JavaVM* g_jvm);
 
 void* memcmp_plus(void* p0,void* p1,int lt1,int lt2);
+void GetCurrentABI();
 
 #endif

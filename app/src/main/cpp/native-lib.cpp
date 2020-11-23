@@ -13,7 +13,8 @@ Java_com_lzy_dobbytest_MainActivity_stringFromJNI(
         jobject /* this */) {
     std::string hello = "Hello from C++";
     MainEnter(hello, 5000);
-    return env->NewStringUTF(hello.c_str());
+    char * temp_str = "Hello from repppp";
+    return env->NewStringUTF(temp_str);
 }
 
 int tolower1(int c)

@@ -31,7 +31,6 @@ JNIEnv *env;
 JavaVM *g_jvm;
 unsigned long base = 0;
 
-
 //特值处理
 void Func_SpecificTreatment(void* arg,void* arg1,void* arg2,void* arg3);
 //原函数指针
@@ -49,10 +48,10 @@ void* (*old_func_y_1)(void*,void*,void*,void*) = NULL;
 void* new_func_dlopen(const char *filename, int flags, const void *caller_addr) {
     void* p = old_func_dlopen(filename,flags,caller_addr);
     LOGD("_loader_dlopen('%s','%d','%p')",filename,flags,caller_addr);
-    if(strstr(filename,"KJIHGF") != NULL && caller_addr !=0){
+    if(strstr(filename,"libil2cpp") != NULL && caller_addr !=0){
         base = find_module_by_name(lib_name);
         hook();
-        LOGD("find libKJIHGF.so and inject");
+        LOGD("find libil2cpp.so and inject");
     }
     return old_func_dlopen(filename,flags,caller_addr);
 }
@@ -66,43 +65,42 @@ void* new_func_dlsym(void *handle, const char *symbol){
 
 void* new_func_y_6(void* arg,void* arg1,void* arg2,void* arg3){
     LOGD("Enter new_func_y_6");
-//    void* ret = old_func_y_6(arg,arg1,arg2,arg3);
-//    Func_SpecificTreatment(arg,arg1,arg2,arg3);
-    char *newchar = "com/unblockbird/brain/puzzlegames/";
-    return newchar;
+    void* ret = old_func_y_6(arg,arg1,arg2,arg3);
+    Func_SpecificTreatment(arg,arg1,arg2,arg3);
+    return ret;
 }
 
 void* new_func_y_5(void* arg,void* arg1,void* arg2,void* arg3){
     LOGD("Enter new_func_y_5");
-//    show_sa10(env,g_jvm);
+    show_sa11(env,g_jvm);
     void* ret = old_func_y_5(arg,arg1,arg2,arg3);
     return ret;
 }
 
 void* new_func_y_4(void* arg,void* arg1,void* arg2,void* arg3){
     LOGD("Enter new_func_y_4");
-    show_sa10(env,g_jvm);
+    show_sa11(env,g_jvm);
     void* ret = old_func_y_4(arg,arg1,arg2,arg3);
     return ret;
 }
 
 void* new_func_y_3(void* arg,void* arg1,void* arg2,void* arg3){
     LOGD("Enter new_func_y_3");
-//    show_sa10(env,g_jvm);
+    show_sa11(env,g_jvm);
     void* ret = old_func_y_3(arg,arg1,arg2,arg3);
     return ret;
 }
 
 void* new_func_y_2(void* arg,void* arg1,void* arg2,void* arg3){
     LOGD("Enter new_func_y_2");
-    show_sa10(env,g_jvm);
+    show_sa11(env,g_jvm);
     void* ret = old_func_y_2(arg,arg1,arg2,arg3);
     return ret;
 }
 
 void* new_func_y_1(void* arg,void* arg1,void* arg2,void* arg3){
     LOGD("Enter new_func_y_1");
-    show_sa10(env,g_jvm);
+    show_sa11(env,g_jvm);
     void* ret = old_func_y_1(arg,arg1,arg2,arg3);
     return ret;
 }
@@ -115,8 +113,9 @@ void Func_SpecificTreatment(void* arg,void* arg1,void* arg2,void* arg3){
 //    memcpy(p, (char *) arg1 + sizeof(char) * 16, 2);
 //    hexDump(static_cast<const char *>(p), 16);
 //    LOGD("%d ",p);
-    old_func_y_5(arg,arg1,arg2,arg3);
-//    show_sa10(env,g_jvm);
+//    old_func_y_5(arg,arg1,arg2,arg3);
+//    this_level = reinterpret_cast<int>(arg1);
+    show_sa11(env,g_jvm);
 }
 
 jint JNICALL
@@ -161,12 +160,12 @@ JNI_OnLoad(JavaVM *vm, void *reserved) {
 }
 
 void hook() {
-    func_y_6 = base + 0x3794;
-    func_y_5 = base + 0x0;
-    func_y_4 = base + 0x0;
-    func_y_3 = base + 0x0;
-    func_y_2 = base + 0x0;
-    func_y_1 = base + 0x0;
+    func_y_6 = base + 0x0;
+    func_y_5 = base + 0x676800;
+    func_y_4 = base + 0x678654;
+    func_y_3 = base + 0x500784;
+    func_y_2 = base + 0x500784;
+    func_y_1 = base + 0x86d9f8;
 
     if (func_y_6 != base)
         DobbyHook((void *)func_y_6, (void *)new_func_y_6,(void **)&old_func_y_6) == RS_SUCCESS ?

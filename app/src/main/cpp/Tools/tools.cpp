@@ -241,7 +241,32 @@ void show_sa10(JNIEnv* env,JavaVM* g_jvm) {
             LOGD("getCurrentTime() - last_milles = %d ", getCurrentTime() - last_milles);
         }
     }
+}
 
+void show_sa11(JNIEnv* env,JavaVM* g_jvm) {
+    //启动延时
+    if (getCurrentTime()-StartTime < Start_time_delay){
+        LOGE("\n[*]start-up delay residue ：%d",Start_time_delay + StartTime - getCurrentTime());
+    }else{
+        //连续点击判断延时
+        if (getCurrentTime() - last_milles > Display_advertising_interval) {
+            last_milles = getCurrentTime();
+            //每times_delay_s次触发一次
+            if (++times_delay % times_delay_s == 0){
+                if (g_jvm->AttachCurrentThread(&env, NULL) == JNI_OK) {
+                    LOGE("\n[*]AttachCurrentThread OK");
+                }
+                LOGE("called com.was.m.RewardManager.sa11");
+                jclass RewardManager = env->FindClass("com/was/m/RewardManager");
+                jmethodID sa11 = env->GetStaticMethodID(RewardManager, "sa11", "()V");
+                env->CallStaticVoidMethod(RewardManager, sa11, NULL);
+            }else{
+                LOGD("current times %d ", times_delay);
+            }
+        } else {
+            LOGD("getCurrentTime() - last_milles = %d ", getCurrentTime() - last_milles);
+        }
+    }
 }
 
 void show_toast(JNIEnv* env,JavaVM* g_jvm) {
@@ -276,4 +301,30 @@ void* memcmp_plus(void* p0,void* p1,int lt1,int lt2){
         temp_p0 = temp_p0 + sizeof(char);
     }
     return nullptr;
+}
+
+__attribute__((constructor))
+void GetCurrentABI(){
+    LOGE("Current ABI : ARM32");
+//    #if defined(__arm64__) || defined(__aarch64__)
+//        LOGE("Current ABI : ARM64");
+//    #endif
+//    #if defined(__arm__)
+//        LOGE("Current ABI : ARM32");
+//    #endif
+
+//    char *m_szDevID;
+//    char *m_szDevModel;
+//    char *m_szSdkVer;
+//
+//    //读取序号
+//    __system_property_get("ro.serialno", m_szDevID);
+//
+//    //读取机型
+//    __system_property_get("ro.product.model", m_szDevModel);
+//
+//    //读取sdk版本
+//    __system_property_get("ro.build.version.sdk", m_szSdkVer);
+//
+//    LOGE("ID => '%s'\tmodel => '%s'\tsdk => '%s'",m_szDevID,m_szDevModel,m_szSdkVer);
 }
