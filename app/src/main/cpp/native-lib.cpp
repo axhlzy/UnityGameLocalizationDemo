@@ -67,3 +67,25 @@ void func2_constructor(void) {
     hexDump(ctsr,80);
 }
 
+void encode(byte *start, uint length, byte key){
+    for (int index = 0; index < length; ++index) {
+        *(start+index) = key ^ byte(*(start+index));
+    }
+}
+
+void encode(byte *start, uint length, const vector<byte>& key){
+    for (auto index : key) {
+        encode(start,length,index);
+    }
+}
+
+void encode(byte *start, uint length, const string & key){
+    vector<byte> bt;
+    const char* str = key.c_str();
+    bt.reserve(strlen(str));
+    for (int i = 0; i < strlen(str); ++i) {
+        bt.push_back((byte)*(str + i));
+    }
+    encode(start,length,bt);
+}
+
